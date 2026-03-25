@@ -1,5 +1,6 @@
 import java.util.function.Function;
 import java.util.concurrent.*;
+import java.util.*;
 
 // Cache stores data, Memoizer stores computation. Memoizer avoids cache stampede.
 public class Memoizer<K, V> {
@@ -23,7 +24,7 @@ public class Memoizer<K, V> {
             }
 
             try {
-                return future.get();
+                return future.get(); // 多线程之间同步
             } catch (CancellationException e) {
                 cacheWithFuture.remove(key, future);
             } catch (ExecutionException e) {
@@ -38,30 +39,51 @@ public class Memoizer<K, V> {
         String key = "tom";
 
         ExecutorService executor = Executors.newFixedThreadPool(3);
+        CountDownLatch startLatch = new CountDownLatch(1); 
 
-        Runnable task = () -> {
-            try {
-                Integer result = cache.getWithFuture(key, () -> {
-                    System.out.println("loader running by " + Thread.currentThread().getName());
-                    try {
-                        Thread.sleep(5000);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                    return key.length() + 100000;
-                });
+        Callable<Void> task = () -> {
+            startLatch.await();
+            Integer result = cache.getWithFuture(key, () -> {
+                System.out.println("loader running by " + Thread.currentThread().getName());
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return key.length() + 100000;
+            });
 
-                System.out.println(result + " ----- " + Thread.currentThread().getName());
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            System.out.println(result + " ----- " + Thread.currentThread().getName());
+            return null;
         };
 
-        executor.submit(task);
-        executor.submit(task);
-        executor.submit(task);
-
+        List<Future<Void>> futures = new ArrayList<>();
+        futures.add(executor.submit(task));
+        futures.add(executor.submit(task));
+        futures.add(executor.submit(task));
+        
+        startLatch.countDown();
+    
+        for(Future<Void> future : futures) {
+            future.get(); // 主线程等待 + 异常传播
+        }
         executor.shutdown();
-        executor.awaitTermination(1, TimeUnit.MINUTES);  
     }
 }
+
+
+/*
+
+➜  concurrency git:(main) ✗ java Memoizer                            
+loader running by pool-1-thread-3
+100003 ----- pool-1-thread-2
+100003 ----- pool-1-thread-3
+100003 ----- pool-1-thread-1
+➜  concurrency git:(main) ✗ java Memoizer
+loader running by pool-1-thread-3
+100003 ----- pool-1-thread-1
+100003 ----- pool-1-thread-3
+100003 ----- pool-1-thread-2
+
+
+*/

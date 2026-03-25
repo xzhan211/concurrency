@@ -35,10 +35,33 @@ public class Memoizer<K, V> {
 
     public static void main(String[] args) throws Exception {
         Memoizer<String, Integer> cache = new Memoizer<>();
-        System.out.println(cache.get("123", k -> {return k.length() + 100;}));
-        String key = "456";
-        System.out.println(cache.getWithFuture(key, () -> {
-            System.out.println("----" + key);
-            return 123;}));
+        String key = "tom";
+
+        ExecutorService executor = Executors.newFixedThreadPool(3);
+
+        Runnable task = () -> {
+            try {
+                Integer result = cache.getWithFuture(key, () -> {
+                    System.out.println("loader running by " + Thread.currentThread().getName());
+                    try {
+                        Thread.sleep(5000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    return key.length() + 100000;
+                });
+
+                System.out.println(result + " ----- " + Thread.currentThread().getName());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        };
+
+        executor.submit(task);
+        executor.submit(task);
+        executor.submit(task);
+
+        executor.shutdown();
+        executor.awaitTermination(1, TimeUnit.MINUTES);  
     }
 }

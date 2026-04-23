@@ -19,5 +19,6 @@ public class HitCounter {
         counter.hit("1");
         counter.hit("1");
         System.out.println(counter.get("1"));
+        System.out.println(12345);
     }
 }

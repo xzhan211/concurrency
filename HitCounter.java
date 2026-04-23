@@ -16,9 +16,10 @@ public class HitCounter {
 
     public static void main(String[] args) {
         HitCounter counter = new HitCounter();
-        counter.hit("1");
+        counter.hit("123");
         counter.hit("1");
         counter.hit("1");
         System.out.println(counter.get("1"));
+        System.out.println(12345);
     }
 }

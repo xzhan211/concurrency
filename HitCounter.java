@@ -10,6 +10,7 @@ public class HitCounter {
 
     public long get(String key) {
         LongAdder adder = map.get(key);
+        // add comment
         return adder == null ? 0 : adder.sum();
     }
 
